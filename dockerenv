@@ -1,0 +1,60 @@
+#!/bin/python
+
+import yaml
+import os
+import subprocess
+import sys
+import random
+
+def main():
+    with open(os.path.expanduser("~/.dockenv"), "r") as input:
+        data = yaml.load(input)
+
+    if data is None: raise Exception("Must have data")
+    if len(sys.argv) < 2: 
+        for name in data:
+            print name
+        sys.exit(0)
+
+    name = sys.argv[1]
+    connect = data[name]["ssh"]
+    dport = 4243
+    if "port" in data[name]:
+        dport = data[name]["port"]
+
+    sport = random.randrange(10000, 20000)
+
+    cmd = "ssh {host} -L {sport}:localhost:{dport} -N -f".format(host=connect, sport=sport, dport=dport)
+
+    try:
+        if not subprocess.call(cmd, shell=True) is 0:
+            raise Exception("Command '{}' returned error".format(cmd))
+
+    except OSError as e:
+        print "Error launching SSH process '{}'".format(cmd)
+        sys.exit(1)
+
+    shell = "bash"
+    if "SHELL" in os.environ:
+        shell = os.environ["SHELL"]
+
+    newenv = os.environ.copy()
+    newenv["DOCKER_HOST"] = "localhost:{sport}".format(sport=sport)
+    newenv["PS1"] = "\\n({name}){ps1}".format(name=name, ps1=os.environ["PS1"])
+
+    print "PS1 is {}".format(newenv["PS1"])
+
+    cmd = "{shell} --norc".format(shell=shell)
+
+    try:
+        print "Launching shell in {}".format(cmd)
+        subprocess.call([shell, "--norc"] , env=newenv)
+        print "Shell complete"
+    except OSError as e:
+        print "Error launching SSH process '{}'".format(cmd)
+        sys.exit(1)
+
+
+
+if __name__ == "__main__":
+    main()
