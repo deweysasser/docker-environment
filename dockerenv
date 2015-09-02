@@ -6,8 +6,52 @@ import subprocess
 import sys
 import random
 
+class SSHProcess:
+    def __init__(self, info):
+#        print "Info is {}".format(info)
+        self.host = info['ssh']
+        if 'port' in info:
+            self.dport = info['port']
+        else:
+            self.dport = 2375
+        self.sport = random.randrange(10000, 20000)
+
+    def __enter__(self):
+        print "Launching SSH to {host}:{port} from {sport}".format(host=self.host, sport=self.sport, port=self.dport)
+        cmd = "ssh {host} -L {sport}:localhost:{dport} -N".format(host=self.host, sport=self.sport, dport=self.dport)
+        self.process = subprocess.Popen(cmd, shell=True)
+        return "localhost:{}".format(self.sport)
+
+    def __exit__(self, type, value, traceback):
+#        print "Terminating {}".format(self.process)
+        self.process.terminate()
+        self.process.wait()
+
+class Direct:
+    def __init__(self, info):
+        self.address = info['address']
+        if 'port' in info:
+            self.dport = info['port']
+        else:
+            self.dport = 2375
+
+    def __enter__(self):
+        return "{}:{}".format(self.address, self.dport)
+
+    def __exit__(self, type, value, traceback):
+        pass
+    
+
+def connect(info):
+    if 'ssh' in info:
+        return SSHProcess(info)
+    elif 'address' in info:
+        return Direct(info)
+    else:
+        raise Exception("SSH section missing")
+
 def main():
-    with open(os.path.expanduser("~/.dockenv"), "r") as input:
+    with open(os.path.expanduser("~/.dockerenv"), "r") as input:
         data = yaml.load(input)
 
     if data is None: raise Exception("Must have data")
@@ -17,43 +61,29 @@ def main():
         sys.exit(0)
 
     name = sys.argv[1]
-    connect = data[name]["ssh"]
-    dport = 4243
-    if "port" in data[name]:
-        dport = data[name]["port"]
-
-    sport = random.randrange(10000, 20000)
-
-    cmd = "ssh {host} -L {sport}:localhost:{dport} -N -f".format(host=connect, sport=sport, dport=dport)
-
-    try:
-        if not subprocess.call(cmd, shell=True) is 0:
-            raise Exception("Command '{}' returned error".format(cmd))
-
-    except OSError as e:
-        print "Error launching SSH process '{}'".format(cmd)
-        sys.exit(1)
 
     shell = "bash"
     if "SHELL" in os.environ:
         shell = os.environ["SHELL"]
 
-    newenv = os.environ.copy()
-    newenv["DOCKER_HOST"] = "localhost:{sport}".format(sport=sport)
-    newenv["PS1"] = "\\n({name}){ps1}".format(name=name, ps1=os.environ["PS1"])
-
-    print "PS1 is {}".format(newenv["PS1"])
-
-    cmd = "{shell} --norc".format(shell=shell)
-
     try:
-        print "Launching shell in {}".format(cmd)
-        subprocess.call([shell, "--norc"] , env=newenv)
-        print "Shell complete"
-    except OSError as e:
-        print "Error launching SSH process '{}'".format(cmd)
-        sys.exit(1)
+        with connect(data[name]) as var:
+            newenv = os.environ.copy()
+            newenv["DOCKER_HOST"] = var
+            newenv["PS1"] = "\\n({name}){ps1}".format(name=name, var=var, ps1=os.environ["PS1"])
 
+            cmd = "{shell} --norc".format(shell=shell)
+            try:
+#                print "Launching shell in {}".format(cmd)
+                subprocess.call([shell, "--norc"] , env=newenv)
+                print "Shell complete"
+            except OSError as e:
+                print "Error launching SSH process '{}': {}".format(cmd, e)
+                sys.exit(1)
+
+    except OSError as e:
+        print "Error launching SSH process '{}':{}".format(cmd, e)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
