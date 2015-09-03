@@ -66,6 +66,13 @@ def main():
     if "SHELL" in os.environ:
         shell = os.environ["SHELL"]
 
+    if not name in data:
+        print "Unknown docker environment '{}'".format(name)
+        print "Available options:"
+        for name in data:
+            print "  " + name
+        sys.exit(1)
+
     try:
         with connect(data[name]) as var:
             newenv = os.environ.copy()
