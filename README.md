@@ -28,6 +28,16 @@ If the connection method specifies SSH, an SSH tunnel will be created
 for the lifetime of your shell and your connection will be tunneled
 through that session.
 
+## Connection Types
+
+This tool supports:
+
+* 'address' -- a direct TCP connection to the given address
+* 'ssh' -- tunnel the connection through SSH to the given SSH connection string.
+
+Both connection methods can have a 'port' associated.  If no port is
+defined, it defaults to the IANA issued docker standard of 2375.
+
 
 TODO
 ----
