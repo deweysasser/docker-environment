@@ -50,8 +50,14 @@ def connect(info):
     else:
         raise Exception("SSH section missing")
 
+FILE="~/.dockerenv"
+
 def main():
-    with open(os.path.expanduser("~/.dockerenv"), "r") as input:
+    if not os.path.isfile(os.path.expanduser(FILE)):
+        print "Cannot find index file {}".format(FILE)
+        sys.exit(1)
+
+    with open(os.path.expanduser(FILE), "r") as input:
         data = yaml.load(input)
 
     if data is None: raise Exception("Must have data")
