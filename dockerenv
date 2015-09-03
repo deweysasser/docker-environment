@@ -6,6 +6,7 @@ import subprocess
 import sys
 import random
 
+# Handle the SSH tunnel process
 class SSHProcess:
     def __init__(self, info):
 #        print "Info is {}".format(info)
@@ -27,6 +28,7 @@ class SSHProcess:
         self.process.terminate()
         self.process.wait()
 
+# Handle direct connections
 class Direct:
     def __init__(self, info):
         self.address = info['address']
@@ -41,7 +43,7 @@ class Direct:
     def __exit__(self, type, value, traceback):
         pass
     
-
+# Decide what connection type is appropriate and return it
 def connect(info):
     if 'ssh' in info:
         return SSHProcess(info)
