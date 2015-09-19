@@ -23,7 +23,12 @@ class SSHUProcess:
         nccmd='coproc nc -U /var/run/docker.sock; nc -l {dport} <&${{COPROC[0]}} >&${{COPROC[1]}}'.format(dport=self.dport)
         cmd = "ssh -L {sport}:localhost:{dport} {host} '{nccmd}' ".format(host=self.host, sport=self.sport, nccmd = nccmd, dport = self.dport)
 
-        self.process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        def launch():
+            while True:
+                self.process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                self.process.wait()
+
+        self.start(launch)
 
         return "localhost:{}".format(self.sport)
 
@@ -82,7 +87,7 @@ def connect(info):
     elif 'address' in info:
         return Direct(info)
     else:
-        raise Exception("SSH section missing")
+        raise Exception("Can't determine connection method for {}".format(info))
 
 FILE="~/.dockerenv"
 
