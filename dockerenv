@@ -5,8 +5,38 @@ import os
 import subprocess
 import sys
 import random
+import socket
+import threading
+import functools
 
 # Handle the SSH tunnel process
+
+class SSHUProcess:
+    def __init__(self, info):
+#        print "Info is {}".format(info)
+        self.host = info['ssh+nc']
+        self.sport = random.randrange(10000, 20000)
+        self.dport = random.randrange(10000, 20000)
+
+    def __enter__(self):
+#        nccmd='while nc -U /var/run/docker.sock; do echo > /dev/null; done'
+        nccmd='coproc nc -U /var/run/docker.sock; nc -l {dport} <&${{COPROC[0]}} >&${{COPROC[1]}}'.format(dport=self.dport)
+        cmd = "ssh -L {sport}:localhost:{dport} {host} '{nccmd}' ".format(host=self.host, sport=self.sport, nccmd = nccmd, dport = self.dport)
+
+        self.process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+        return "localhost:{}".format(self.sport)
+
+    def start(self, proc):
+        t = threading.Thread(target=proc)
+        t.daemon = True
+        t.start()
+
+    def __exit__(self, type, value, traceback):
+#        print "Terminating {}".format(self.process)
+        self.process.terminate()
+        self.process.wait()
+
 class SSHProcess:
     def __init__(self, info):
 #        print "Info is {}".format(info)
@@ -18,7 +48,7 @@ class SSHProcess:
         self.sport = random.randrange(10000, 20000)
 
     def __enter__(self):
-        print "Launching SSH to {host}:{port} from {sport}".format(host=self.host, sport=self.sport, port=self.dport)
+#        print "Launching SSH to {host}:{port} from {sport}".format(host=self.host, sport=self.sport, port=self.dport)
         cmd = "ssh {host} -L {sport}:localhost:{dport} -N".format(host=self.host, sport=self.sport, dport=self.dport)
         self.process = subprocess.Popen(cmd, shell=True)
         return "localhost:{}".format(self.sport)
@@ -47,6 +77,8 @@ class Direct:
 def connect(info):
     if 'ssh' in info:
         return SSHProcess(info)
+    elif 'ssh+nc' in info:
+        return SSHUProcess(info)
     elif 'address' in info:
         return Direct(info)
     else:
