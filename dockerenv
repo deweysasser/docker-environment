@@ -25,6 +25,7 @@ class SSHUProcess:
 
         def launch():
             while True:
+                print "Launching new SSH"
                 self.process = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 self.process.wait()
 
